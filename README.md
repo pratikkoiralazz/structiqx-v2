@@ -19,3 +19,13 @@ The installer creates the `structiqx` database, schema, and realistic demo data.
 - Activity logging
 
 Engineering calculations are explicitly draft tools and require qualified professional review; they are not approval records by themselves.
+
+## Included modules
+
+- Organization settings, profiles, invitations, password reset, role-based access
+- Projects, comments, tasks, milestones, task dependencies, Gantt view
+- Budgets, expenses, BOQ items, estimation, CSV exports
+- RCC beam/slab draft calculations with professional review status
+- Daily site reports, document uploads/downloads and version fields
+- Suppliers, purchase requests, purchase orders and approvals
+- Client portal, notifications and activity logging

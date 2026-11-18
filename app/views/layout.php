@@ -38,14 +38,15 @@ $flash = consume_flash();
         </a>
         <?php endforeach; ?>
       </nav>
+      <a href="<?= e(base_url('organization')) ?>" class="mx-3 mb-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"><i data-lucide="Settings" class="h-4 w-4"></i>Organization</a>
       <a href="<?= e(base_url('logout')) ?>" class="m-3 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"><i data-lucide="LogOut" class="h-4 w-4"></i>Sign out</a>
     </aside>
     <div class="flex-1 min-w-0">
       <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-5 md:px-8">
         <div class="text-sm text-slate-500"><span class="hidden sm:inline">Workspace / </span><span class="font-medium text-slate-800"><?= e(ucwords(str_replace('_',' ', $page))) ?></span></div>
         <div class="flex items-center gap-3">
-          <button class="h-9 w-9 grid place-items-center rounded-lg border border-slate-200 text-slate-500" title="Notifications"><i data-lucide="Bell" class="h-4 w-4"></i></button>
-          <div class="h-9 w-9 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-semibold"><?= e(strtoupper(substr($user['name'] ?? 'U',0,2))) ?></div>
+          <a href="<?= e(base_url('notifications')) ?>" class="h-9 w-9 grid place-items-center rounded-lg border border-slate-200 text-slate-500" title="Notifications"><i data-lucide="Bell" class="h-4 w-4"></i></a>
+          <a href="<?= e(base_url('profile')) ?>" class="h-9 w-9 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-semibold" title="Profile"><?= e(strtoupper(substr($user['name'] ?? 'U',0,2))) ?></a>
         </div>
       </header>
       <main class="p-5 md:p-8">
