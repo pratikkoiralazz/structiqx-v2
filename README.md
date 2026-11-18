@@ -45,3 +45,28 @@ Engineering calculations are explicitly draft tools and require qualified profes
 ## Validation
 
 Run `php scripts/security-check.php` from the project root. It verifies core database tables and the built-in security configuration.
+
+## Public website and authentication
+
+Public routes:
+
+- `/public/`
+- `/public/features`
+- `/public/solutions`
+- `/public/pricing`
+- `/public/about`
+- `/public/contact`
+- `/public/login`
+- `/public/register`
+- `/public/forgot-password`
+- `/public/reset-password/{token}`
+
+Organization registration creates the organization, its administrator membership and default NPR/Asia/Kathmandu settings in one transaction.
+
+Run the backward-compatible public-auth migration with the installer or directly:
+
+```sql
+SOURCE database/migration_public_auth.sql;
+```
+
+The contact form saves submissions to `contact_messages`. Email delivery is not configured; password-reset and email-verification links require SMTP integration before production email delivery.

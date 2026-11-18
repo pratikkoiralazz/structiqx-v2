@@ -22,6 +22,7 @@ try {
           INDEX idx_reset_expiry (token,expires_at)
         ) ENGINE=InnoDB");
     }
+    $pdo->exec(file_get_contents(dirname(__DIR__) . '/database/migration_public_auth.sql'));
 
     $orgId = (int)$pdo->query("SELECT id FROM organizations WHERE slug='himalayan-structures' LIMIT 1")->fetchColumn();
     if (!$orgId) {

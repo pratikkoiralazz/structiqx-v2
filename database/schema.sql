@@ -2,7 +2,8 @@ CREATE DATABASE IF NOT EXISTS structiqx CHARACTER SET utf8mb4 COLLATE utf8mb4_un
 USE structiqx;
 
 SET FOREIGN_KEY_CHECKS=0;
-DROP TABLE IF EXISTS approval_steps, approvals, comments, notifications, activity_logs, document_versions, documents,
+DROP TABLE IF EXISTS email_verification_tokens, password_reset_tokens, contact_messages,
+  approval_steps, approvals, comments, notifications, activity_logs, document_versions, documents,
   material_deliveries, purchase_order_items, purchase_orders, purchase_requests, suppliers,
   site_report_photos, site_reports, engineering_calculations, rate_analyses, boq_items, boq,
   expenses, budget_revisions, budgets, milestones, task_dependencies, tasks, project_members,
@@ -13,6 +14,7 @@ CREATE TABLE users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL,
   email VARCHAR(190) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL,
   phone VARCHAR(40), avatar VARCHAR(255), is_active TINYINT(1) NOT NULL DEFAULT 1,
+  email_verified_at DATETIME NULL,
   last_login_at DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
@@ -271,6 +273,41 @@ CREATE TABLE activity_logs (
   user_id BIGINT UNSIGNED NULL, action VARCHAR(80) NOT NULL, entity_type VARCHAR(40),
   entity_id BIGINT UNSIGNED NULL, description TEXT, ip_address VARCHAR(45), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_activity_org (organization_id,created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE password_reset_tokens (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token CHAR(64) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_reset_user_public FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_reset_token_expiry (token,expires_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE email_verification_tokens (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token CHAR(64) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_email_verify_user_public FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_email_verify_token (token,expires_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE contact_messages (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(190) NOT NULL,
+  phone VARCHAR(40),
+  organization VARCHAR(160),
+  subject VARCHAR(180),
+  message TEXT NOT NULL,
+  status ENUM('new','read','closed') NOT NULL DEFAULT 'new',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_contact_status_created (status,created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE password_reset_tokens (

@@ -5,8 +5,11 @@ require dirname(__DIR__) . '/app/core/bootstrap.php';
 $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 $base = trim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 if ($base && str_starts_with($path, $base)) $path = trim(substr($path, strlen($base)), '/');
-$route = $path === '' ? 'dashboard' : $path;
+$route = $path === '' ? 'home' : $path;
 $page = explode('/', $route)[0];
+
+if ($route === 'forgot-password') $route = 'forgot';
+if (str_starts_with($route, 'reset-password/')) $route = 'reset/' . substr($route, strlen('reset-password/'));
 
 function render(string $title, string $content, string $page = 'dashboard'): void {
     require dirname(__DIR__) . '/app/views/layout.php';
@@ -79,9 +82,94 @@ function simple_pdf(string $title, array $headers, array $rows): string {
     return $pdf;
 }
 
+function render_public(string $title, string $content, string $activePage = ''): void {
+    require dirname(__DIR__) . '/app/views/public_layout.php';
+}
+
+if (str_starts_with($route,'accept-invitation/')) {
+    $token=substr($route,strlen('accept-invitation/'));
+    $stmt=db()->prepare('SELECT * FROM organization_invitations WHERE token=? AND accepted_at IS NULL AND expires_at>NOW()');
+    $stmt->execute([$token]);$invitation=$stmt->fetch();
+    if(!$invitation){http_response_code(410);die('Invitation is invalid or has expired.');}
+    if(!current_user()){$_SESSION['intended_url']=base_url('accept-invitation/'.$token);redirect(base_url('login'));}
+    $uid=(int)current_user()['id'];
+    $stmt=db()->prepare('SELECT email FROM users WHERE id=?');$stmt->execute([$uid]);$email=(string)$stmt->fetchColumn();
+    if(strtolower($email)!==strtolower($invitation['email'])){http_response_code(403);die('Sign in with the invited email address.');}
+    db()->beginTransaction();
+    db()->prepare("INSERT INTO organization_members (organization_id,user_id,role,status) VALUES (?,?,?, 'active') ON DUPLICATE KEY UPDATE role=VALUES(role),status='active'")->execute([(int)$invitation['organization_id'],$uid,$invitation['role']]);
+    db()->prepare('UPDATE organization_invitations SET accepted_at=NOW() WHERE id=?')->execute([(int)$invitation['id']]);
+    db()->commit();
+    $_SESSION['organization_id']=(int)$invitation['organization_id'];
+    $stmt=db()->prepare('SELECT name FROM organizations WHERE id=?');$stmt->execute([(int)$invitation['organization_id']]);$_SESSION['organization_name']=$stmt->fetchColumn();
+    $_SESSION['role']=$invitation['role'];
+    redirect(base_url('dashboard'));
+}
+
+if (str_starts_with($route,'verify-email/')) {
+    $token=substr($route,strlen('verify-email/'));
+    $stmt=db()->prepare('SELECT user_id FROM email_verification_tokens WHERE token=? AND used_at IS NULL AND expires_at>NOW()');
+    $stmt->execute([$token]);$uid=(int)$stmt->fetchColumn();
+    if($uid){
+        db()->beginTransaction();
+        db()->prepare('UPDATE users SET email_verified_at=COALESCE(email_verified_at,NOW()) WHERE id=?')->execute([$uid]);
+        db()->prepare('UPDATE email_verification_tokens SET used_at=NOW() WHERE token=?')->execute([$token]);
+        db()->commit();redirect(base_url('login'));
+    }
+    http_response_code(410);die('Verification link is invalid or has expired.');
+}
+
+$publicPages = ['home','features','solutions','pricing','about','contact'];
+if (in_array($route,$publicPages,true)) {
+    if (current_user() && $route === 'home') redirect(base_url('dashboard'));
+    if ($route === 'contact' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        verify_csrf();
+        try {
+            db()->exec("CREATE TABLE IF NOT EXISTS contact_messages (
+              id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+              name VARCHAR(120) NOT NULL, email VARCHAR(190) NOT NULL, phone VARCHAR(40),
+              organization VARCHAR(160), subject VARCHAR(180), message TEXT NOT NULL,
+              status ENUM('new','read','closed') NOT NULL DEFAULT 'new',
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB");
+            $stmt=db()->prepare('INSERT INTO contact_messages (name,email,phone,organization,subject,message) VALUES (?,?,?,?,?,?)');
+            $stmt->execute([trim((string)$_POST['name']),strtolower(trim((string)$_POST['email'])),trim((string)($_POST['phone']??'')),trim((string)($_POST['organization']??'')),trim((string)($_POST['subject']??'General enquiry')),trim((string)$_POST['message'])]);
+            flash('success','Your message has been sent. Our team will contact you shortly.');
+        } catch (Throwable $e) { flash('error','The message could not be sent right now.'); }
+        redirect(base_url('contact'));
+    }
+    ob_start();
+    if ($route === 'home') {
+        ?>
+        <main>
+          <section class="sq-hero"><div class="sq-container sq-hero-grid"><div><span class="sq-eyebrow">Civil engineering work, unified</span><h1>One Platform. Every Project. <span>Complete Control.</span></h1><p class="sq-hero-copy">Manage construction projects, engineering calculations, budgets, teams and site operations — all from one powerful workspace.</p><div class="sq-hero-actions"><a class="sq-btn sq-btn-accent" href="<?= e(base_url('register')) ?>">Get Started</a><a class="sq-btn" href="<?= e(base_url('features')) ?>">Explore Features</a></div></div><div class="sq-preview"><div class="sq-window"><div class="sq-window-bar"><i class="sq-dot"></i><i class="sq-dot"></i><i class="sq-dot"></i></div><div class="sq-app"><div class="sq-sidebar"><span></span><span></span><span></span><span></span><span></span></div><div class="sq-dashboard"><div class="sq-dash-head"></div><div class="sq-metrics"><div class="sq-metric"><i></i><b></b></div><div class="sq-metric"><i></i><b></b></div><div class="sq-metric"><i></i><b></b></div></div><div class="sq-chart"></div></div></div></div></div></section>
+          <section class="sq-section"><div class="sq-container"><div class="sq-section-head"><span class="sq-eyebrow">The complete workspace</span><h2>From estimate to handover</h2><p>Keep every discipline, decision and deadline connected.</p></div><div class="sq-grid"><article class="sq-card"><div class="sq-card-icon">P</div><h3>Project delivery</h3><p>Plan projects, assign teams, track milestones and maintain full project visibility.</p></article><article class="sq-card"><div class="sq-card-icon">C</div><h3>Engineering studio</h3><p>Run calculation workflows with structured inputs, formulas and professional review controls.</p></article><article class="sq-card"><div class="sq-card-icon">B</div><h3>Commercial control</h3><p>Manage budgets, expenses, BOQs, procurement and planned versus actual cost.</p></article></div></div></section>
+          <section class="sq-section sq-section-alt"><div class="sq-container sq-split"><div><span class="sq-eyebrow">How it works</span><h2 style="font-size:42px;letter-spacing:-.04em">One system for the whole project lifecycle</h2></div><div class="sq-list"><div class="sq-list-item"><div class="sq-number">1</div><div><h3>Set up your workspace</h3><p>Create your organization and invite your team with role-based access.</p></div></div><div class="sq-list-item"><div class="sq-number">2</div><div><h3>Plan and estimate</h3><p>Build projects, budgets, BOQs, schedules and assignments.</p></div></div><div class="sq-list-item"><div class="sq-number">3</div><div><h3>Deliver with confidence</h3><p>Capture site progress, approvals, costs and engineering reviews.</p></div></div></div></div></section>
+          <section class="sq-section"><div class="sq-container"><div class="sq-section-head"><span class="sq-eyebrow">Transparent plans</span><h2>Start with the workspace you need</h2></div><div class="sq-pricing"><article class="sq-card sq-price"><h3>Essential</h3><div class="price">NPR 0</div><p>For teams evaluating STRUCTIQX.</p><ul><li>Project management</li><li>Tasks and milestones</li><li>Team workspace</li></ul><a class="sq-btn" href="<?= e(base_url('register')) ?>">Get Started</a></article><article class="sq-card sq-price featured"><h3>Professional</h3><div class="price">Custom</div><p>For growing engineering organizations.</p><ul><li>Everything in Essential</li><li>BOQ and procurement</li><li>Engineering reviews</li></ul><a class="sq-btn sq-btn-accent" href="<?= e(base_url('contact')) ?>">Contact Sales</a></article><article class="sq-card sq-price"><h3>Enterprise</h3><div class="price">Custom</div><p>For multi-office operations.</p><ul><li>Advanced organization controls</li><li>Custom workflows</li><li>Priority support</li></ul><a class="sq-btn" href="<?= e(base_url('contact')) ?>">Talk to Us</a></article></div></div></section>
+          <section class="sq-section"><div class="sq-container"><div class="sq-cta"><div><h2>Put every project in one clear view.</h2><p>Create your STRUCTIQX organization and start delivering.</p></div><a class="sq-btn sq-btn-accent" href="<?= e(base_url('register')) ?>">Get Started</a></div></div></section>
+          <section class="sq-section sq-section-alt"><div class="sq-container sq-faq"><div class="sq-section-head"><span class="sq-eyebrow">FAQ</span><h2>Frequently asked questions</h2></div><details><summary>Is STRUCTIQX only for large construction companies?</summary><p>No. It supports consultancies, contractors, project managers and growing engineering teams.</p></details><details><summary>Can one organization isolate its projects and users?</summary><p>Yes. Every project and application record is scoped to its organization.</p></details><details><summary>Can approved documents be shared with clients?</summary><p>Yes. Documents can be marked for client access and reviewed through the client portal.</p></details></div></section>
+        </main>
+        <?php
+    } elseif ($route === 'features') {
+        ?><main><section class="sq-page-hero"><div class="sq-container"><span class="sq-eyebrow">Platform capabilities</span><h1>Everything engineering teams need</h1><p>Plan, estimate, execute and report across one secure workspace.</p></div></section><section class="sq-section"><div class="sq-container sq-grid"><article class="sq-card"><div class="sq-card-icon">01</div><h3>Projects and tasks</h3><p>Create projects, assign responsibility, track dependencies and completion.</p></article><article class="sq-card"><div class="sq-card-icon">02</div><h3>Schedule and Gantt</h3><p>Visualize timelines, deadlines and task relationships.</p></article><article class="sq-card"><div class="sq-card-icon">03</div><h3>Budget and BOQ</h3><p>Manage cost estimates, revisions, expenses and procurement.</p></article><article class="sq-card"><div class="sq-card-icon">04</div><h3>Site operations</h3><p>Capture reports, attendance, materials, equipment and photographs.</p></article><article class="sq-card"><div class="sq-card-icon">05</div><h3>Calculation studio</h3><p>Document engineering inputs, formulas, steps and review status.</p></article><article class="sq-card"><div class="sq-card-icon">06</div><h3>Documents and approvals</h3><p>Control versions, access and multi-party approval workflows.</p></article></div></section></main><?php
+    } elseif ($route === 'solutions') {
+        ?><main><section class="sq-page-hero"><div class="sq-container"><span class="sq-eyebrow">Solutions</span><h1>Built for real engineering operations</h1><p>Whether you consult, manage or construct, STRUCTIQX keeps project information aligned.</p></div></section><section class="sq-section"><div class="sq-container sq-grid"><article class="sq-card"><h3>Engineering consultancies</h3><p>Organize calculations, drawing reviews, BOQs, project teams and client communication.</p></article><article class="sq-card"><h3>Construction companies</h3><p>Coordinate site work, costs, procurement, daily reports and project progress.</p></article><article class="sq-card"><h3>Project managers</h3><p>View schedules, risks, approvals and delivery status from one dashboard.</p></article></div></section></main><?php
+    } elseif ($route === 'pricing') {
+        ?><main><section class="sq-page-hero"><div class="sq-container"><span class="sq-eyebrow">Pricing</span><h1>Flexible for every organization</h1><p>Choose the operating model that matches your team and project portfolio.</p></div></section><section class="sq-section"><div class="sq-container sq-pricing"><article class="sq-card sq-price"><h3>Essential</h3><div class="price">NPR 0</div><ul><li>Core project workspace</li><li>Team and task management</li></ul><a class="sq-btn" href="<?= e(base_url('register')) ?>">Get Started</a></article><article class="sq-card sq-price featured"><h3>Professional</h3><div class="price">Custom</div><ul><li>Full commercial suite</li><li>Site and document operations</li><li>Calculation reviews</li></ul><a class="sq-btn sq-btn-accent" href="<?= e(base_url('contact')) ?>">Contact Sales</a></article><article class="sq-card sq-price"><h3>Enterprise</h3><div class="price">Custom</div><ul><li>Multiple organizations</li><li>Advanced controls</li><li>Dedicated support</li></ul><a class="sq-btn" href="<?= e(base_url('contact')) ?>">Talk to Us</a></article></div></section></main><?php
+    } elseif ($route === 'about') {
+        ?><main><section class="sq-page-hero"><div class="sq-container"><span class="sq-eyebrow">About STRUCTIQX</span><h1>Engineering Projects. Simplified.</h1><p>STRUCTIQX brings construction and engineering work into one practical, secure operating system.</p></div></section><section class="sq-section"><div class="sq-container sq-split"><div><h2 style="font-size:42px;letter-spacing:-.04em">Built around how project teams work</h2><p style="color:var(--sq-muted);line-height:1.8">Project delivery requires clear ownership, reliable cost information and traceable engineering decisions. STRUCTIQX is designed to connect those parts in a single workspace.</p></div><div class="sq-card"><h3>Our design principles</h3><p>Organization isolation, professional workflows, clear responsibilities and practical reporting.</p></div></div></section></main><?php
+    } elseif ($route === 'contact') {
+        $notices=consume_flash();
+        ?><main><section class="sq-page-hero"><div class="sq-container"><span class="sq-eyebrow">Contact</span><h1>Talk about your projects</h1><p>Tell us how your team works and we will help you evaluate STRUCTIQX.</p></div></section><section class="sq-section"><div class="sq-container" style="max-width:700px"><?php foreach($notices as $notice):?><div class="<?= $notice['type']==='error'?'sq-error':'sq-success' ?>"><?= e($notice['message']) ?></div><?php endforeach?><form class="sq-card" method="post"><?= csrf_field() ?><div class="sq-form-row"><div class="sq-field"><label>Name</label><input name="name" required></div><div class="sq-field"><label>Work email</label><input name="email" type="email" required></div></div><div class="sq-form-row"><div class="sq-field"><label>Phone</label><input name="phone"></div><div class="sq-field"><label>Organization</label><input name="organization"></div></div><div class="sq-field"><label>Subject</label><input name="subject" value="General enquiry"></div><div class="sq-field"><label>Message</label><textarea name="message" rows="6" required></textarea></div><button class="sq-btn sq-btn-accent" type="submit">Send message</button></form></div></section></main><?php
+    }
+    $content=ob_get_clean();
+    render_public(ucwords(str_replace('-',' ', $route==='home'?'Home':$route)), $content, $route);
+    exit;
+}
+
 if ($route === 'install' && file_exists(__DIR__ . '/install.php')) { require __DIR__ . '/install.php'; exit; }
 
 if ($route === 'login') {
+    if (current_user()) redirect(base_url('dashboard'));
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         verify_csrf();
         $email = strtolower(trim((string)($_POST['email'] ?? '')));
@@ -91,19 +179,28 @@ if ($route === 'login') {
         $user = $stmt->fetch();
         if ($user && password_verify($password, $user['password_hash'])) {
             session_regenerate_id(true);
+            if (!empty($_POST['remember'])) {
+                setcookie(session_name(), session_id(), [
+                    'expires'=>time()+60*60*24*30,
+                    'path'=>'/',
+                    'httponly'=>true,
+                    'samesite'=>'Lax',
+                ]);
+            }
             $_SESSION['user'] = ['id'=>$user['id'],'name'=>$user['name'],'email'=>$user['email']];
             $_SESSION['organization_id'] = (int)$user['organization_id'];
             $_SESSION['organization_name'] = $user['organization_name'];
             $_SESSION['role'] = $user['role'];
             db()->prepare('UPDATE users SET last_login_at=NOW() WHERE id=?')->execute([$user['id']]);
             log_activity('login','session',null,'User signed in');
+            if (!empty($_SESSION['intended_url'])) {$intended=$_SESSION['intended_url'];unset($_SESSION['intended_url']);redirect($intended);}
             redirect(base_url('dashboard'));
         }
         $error = 'Invalid email or password.';
     }
     ?>
     <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Sign in | structiQX</title><script src="https://cdn.tailwindcss.com"></script></head>
-    <body class="min-h-screen bg-slate-950 grid place-items-center p-5"><main class="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl"><div class="mb-8 flex items-center gap-3"><div class="h-10 w-10 rounded-xl bg-orange-500 grid place-items-center font-bold text-white">SQ</div><div><p class="font-semibold">structiQX</p><p class="text-xs text-slate-500">Civil Engineering OS</p></div></div><h1 class="text-xl font-semibold">Welcome back</h1><p class="mt-1 text-sm text-slate-500">Sign in to your workspace.</p><?php if (!empty($error)): ?><p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><?= e($error) ?></p><?php endif; ?><form method="post" class="mt-6 space-y-4"><?= csrf_field() ?><label class="block text-sm font-medium">Email<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="email" name="email" required></label><label class="block text-sm font-medium">Password<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="password" name="password" required></label><button class="w-full rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">Sign in</button></form><div class="mt-5 flex justify-between text-sm"><a class="text-slate-500" href="<?= e(base_url('forgot')) ?>">Forgot password?</a><a class="text-orange-600" href="<?= e(base_url('register')) ?>">Create organization</a></div><p class="mt-4 text-center text-xs text-slate-400">Demo: admin@structiqx.test / Password123!</p></main></body></html>
+    <body class="min-h-screen bg-slate-950 grid place-items-center p-5"><main class="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl"><a href="<?= e(base_url('')) ?>" class="mb-8 flex items-center gap-3 text-slate-900 no-underline"><div class="h-10 w-10 rounded-xl bg-orange-500 grid place-items-center font-bold text-white">SQ</div><div><p class="font-semibold">STRUCTIQX</p><p class="text-xs text-slate-500">Civil Engineering OS</p></div></a><h1 class="text-xl font-semibold">Welcome back</h1><p class="mt-1 text-sm text-slate-500">Sign in to your workspace.</p><?php if (!empty($error)): ?><p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><?= e($error) ?></p><?php endif; ?><form method="post" class="mt-6 space-y-4"><?= csrf_field() ?><label class="block text-sm font-medium">Email<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="email" name="email" required></label><label class="block text-sm font-medium">Password<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="password" name="password" required></label><div class="flex items-center justify-between text-sm"><label class="flex items-center gap-2"><input type="checkbox" name="remember" value="1"> Remember me</label><a class="text-slate-500" href="<?= e(base_url('forgot-password')) ?>">Forgot password?</a></div><button class="w-full rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">Sign in</button></form><p class="mt-5 text-center text-sm text-slate-500">New to STRUCTIQX? <a class="text-orange-600" href="<?= e(base_url('register')) ?>">Create organization</a></p><p class="mt-4 text-center text-xs text-slate-400">Demo: admin@structiqx.test / Password123!</p></main></body></html>
     <?php exit;
 }
 
@@ -140,22 +237,28 @@ if (str_starts_with($route,'reset/')) {
 }
 
 if ($route === 'register') {
+    if (current_user()) redirect(base_url('dashboard'));
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         verify_csrf();
-        $name=trim((string)$_POST['name']); $email=strtolower(trim((string)$_POST['email'])); $orgName=trim((string)$_POST['organization']); $password=(string)$_POST['password'];
+        $name=trim((string)$_POST['name']); $email=strtolower(trim((string)$_POST['email'])); $orgName=trim((string)$_POST['organization']); $phone=trim((string)($_POST['phone']??'')); $password=(string)$_POST['password']; $confirm=(string)$_POST['confirm_password'];
         if (strlen($password)<8) { flash('error','Password must be at least 8 characters.'); redirect(base_url('register')); }
+        if (!hash_equals($password,$confirm)) { flash('error','Password confirmation does not match.'); redirect(base_url('register')); }
         try {
             db()->beginTransaction();
             $slug=strtolower(preg_replace('/[^a-z0-9]+/i','-',$orgName)); $slug=trim($slug,'-').'-'.substr(bin2hex(random_bytes(3)),0,6);
-            $stmt=db()->prepare('INSERT INTO organizations (name,slug) VALUES (?,?)'); $stmt->execute([$orgName,$slug]); $orgId=(int)db()->lastInsertId();
-            $stmt=db()->prepare('INSERT INTO users (name,email,password_hash) VALUES (?,?,?)'); $stmt->execute([$name,$email,password_hash($password,PASSWORD_DEFAULT)]); $uid=(int)db()->lastInsertId();
+            $stmt=db()->prepare('INSERT INTO organizations (name,slug,phone) VALUES (?,?,?)'); $stmt->execute([$orgName,$slug,$phone]); $orgId=(int)db()->lastInsertId();
+            $stmt=db()->prepare('INSERT INTO users (name,email,password_hash,phone) VALUES (?,?,?,?)'); $stmt->execute([$name,$email,password_hash($password,PASSWORD_DEFAULT),$phone]); $uid=(int)db()->lastInsertId();
+            try {
+                $verification=bin2hex(random_bytes(32));
+                db()->prepare('INSERT INTO email_verification_tokens (user_id,token,expires_at) VALUES (?,?,DATE_ADD(NOW(),INTERVAL 24 HOUR))')->execute([$uid,$verification]);
+            } catch (Throwable $e) {}
             db()->prepare("INSERT INTO organization_members (organization_id,user_id,role) VALUES (?,?,'organization_admin')")->execute([$orgId,$uid]);
             db()->commit();
             $_SESSION['user']=['id'=>$uid,'name'=>$name,'email'=>$email]; $_SESSION['organization_id']=$orgId; $_SESSION['organization_name']=$orgName; $_SESSION['role']='organization_admin';
             session_regenerate_id(true); redirect(base_url('dashboard'));
         } catch (Throwable $e) { if (db()->inTransaction()) db()->rollBack(); flash('error','Could not create account. The email may already be registered.'); redirect(base_url('register')); }
     }
-    ?><!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Create organization | structiQX</title><script src="https://cdn.tailwindcss.com"></script></head><body class="min-h-screen bg-slate-950 grid place-items-center p-5"><main class="w-full max-w-md rounded-2xl bg-white p-8"><h1 class="text-xl font-semibold">Create your organization</h1><form method="post" class="mt-6 space-y-4"><?= csrf_field() ?><?= form_field('Organization name','organization') ?><?= form_field('Full name','name') ?><?= form_field('Work email','email','','email') ?><?= form_field('Password','password','','password') ?><button class="w-full rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white">Create workspace</button></form><p class="mt-5 text-center text-sm"><a class="text-slate-500" href="<?= e(base_url('login')) ?>">Back to sign in</a></p></main></body></html><?php exit;
+    ?><!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Create organization | STRUCTIQX</title><script src="https://cdn.tailwindcss.com"></script></head><body class="min-h-screen bg-slate-950 grid place-items-center p-5"><main class="w-full max-w-lg rounded-2xl bg-white p-8"><?php foreach(consume_flash() as $notice):?><p class="mb-4 rounded-lg <?= $notice['type']==='error'?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700' ?> px-3 py-2 text-sm"><?= e($notice['message']) ?></p><?php endforeach?><a href="<?= e(base_url('')) ?>" class="mb-6 flex items-center gap-3 text-slate-900 no-underline"><div class="h-10 w-10 rounded-xl bg-orange-500 grid place-items-center font-bold text-white">SQ</div><div><p class="font-semibold">STRUCTIQX</p><p class="text-xs text-slate-500">Civil Engineering OS</p></div></a><h1 class="text-xl font-semibold">Create your organization</h1><p class="mt-1 text-sm text-slate-500">You will become the Organization Admin.</p><form method="post" class="mt-6 grid gap-4 sm:grid-cols-2"><?= csrf_field() ?><div class="sm:col-span-2"><?= form_field('Organization name','organization') ?></div><?= form_field('Full name','name') ?><?= form_field('Phone number','phone','','tel',false) ?><?= form_field('Work email','email','','email') ?><span></span><?= form_field('Password','password','','password') ?><?= form_field('Confirm password','confirm_password','','password') ?><button class="sm:col-span-2 w-full rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white">Create organization workspace</button></form><p class="mt-5 text-center text-sm"><a class="text-slate-500" href="<?= e(base_url('login')) ?>">Already have an account? Sign in</a></p></main></body></html><?php exit;
 }
 
 if ($route === 'logout') { session_destroy(); redirect(base_url('login')); }
