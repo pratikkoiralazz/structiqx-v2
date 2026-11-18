@@ -26,7 +26,7 @@ CREATE TABLE organizations (
 
 CREATE TABLE organization_members (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, organization_id BIGINT UNSIGNED NOT NULL,
-  user_id BIGINT UNSIGNED NOT NULL, role ENUM('organization_admin','project_manager','civil_engineer','site_engineer','site_supervisor','accountant','procurement_officer','client') NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,   role ENUM('super_admin','organization_admin','project_manager','civil_engineer','site_engineer','site_supervisor','accountant','procurement_officer','client') NOT NULL,
   status ENUM('active','invited','suspended') NOT NULL DEFAULT 'active',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_org_user (organization_id,user_id),
@@ -283,3 +283,10 @@ CREATE TABLE password_reset_tokens (
   CONSTRAINT fk_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_reset_expiry (token,expires_at)
 ) ENGINE=InnoDB;
+
+CREATE INDEX idx_projects_org_dates ON projects (organization_id,end_date);
+CREATE INDEX idx_tasks_org_dates ON tasks (organization_id,due_date);
+CREATE INDEX idx_expenses_org_date ON expenses (organization_id,expense_date);
+CREATE INDEX idx_documents_org_status ON documents (organization_id,status);
+CREATE INDEX idx_site_reports_org_date ON site_reports (organization_id,report_date);
+CREATE INDEX idx_calculations_org_status ON engineering_calculations (organization_id,status);

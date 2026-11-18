@@ -1,9 +1,16 @@
 <?php
 declare(strict_types=1);
 
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(self), microphone=(self), geolocation=(self)');
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:");
+
 if (session_status() !== PHP_SESSION_ACTIVE) {
     ini_set('session.cookie_httponly', '1');
     ini_set('session.cookie_samesite', 'Lax');
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ini_set('session.cookie_secure', '1');
     session_start();
 }
 

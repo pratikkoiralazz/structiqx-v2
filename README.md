@@ -29,3 +29,18 @@ Engineering calculations are explicitly draft tools and require qualified profes
 - Daily site reports, document uploads/downloads and version fields
 - Suppliers, purchase requests, purchase orders and approvals
 - Client portal, notifications and activity logging
+
+## Phase completion
+
+1. Foundation and database: complete.
+2. Dashboard and project/task workflows: complete.
+3. Gantt scheduling, team roles and project permissions: complete.
+4. Budget revisions, expenses, BOQ items and rate analysis: complete.
+5. Engineering calculation studio with review workflow: complete.
+6. Site reports, photos, documents and document downloads: complete.
+7. Suppliers, purchase requests, orders, deliveries, approvals and client portal: complete.
+8. CSV, Excel-compatible and PDF exports, security headers, security checks and database indexes: complete.
+
+## Validation
+
+Run `php scripts/security-check.php` from the project root. It verifies core database tables and the built-in security configuration.
