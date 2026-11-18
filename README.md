@@ -23,6 +23,7 @@ Engineering calculations are explicitly draft tools and require qualified profes
 ## Included modules
 
 - Organization settings, profiles, invitations, password reset, role-based access
+- Client CRUD and inline client creation from project create/edit screens
 - Projects, comments, tasks, milestones, task dependencies, Gantt view
 - Budgets, expenses, BOQ items, estimation, CSV exports
 - RCC beam/slab draft calculations with professional review status

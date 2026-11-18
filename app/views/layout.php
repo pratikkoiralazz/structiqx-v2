@@ -26,7 +26,7 @@ $flash = consume_flash();
       <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
         <?php
         $items = [
-          'dashboard'=>'LayoutDashboard','projects'=>'Building2','tasks'=>'CircleCheckBig','milestones'=>'Milestone',
+          'dashboard'=>'LayoutDashboard','projects'=>'Building2','clients'=>'ContactRound','tasks'=>'CircleCheckBig','milestones'=>'Milestone',
           'team'=>'Users','gantt'=>'ChartGantt','budgets'=>'Wallet','expenses'=>'ReceiptText','boq'=>'ListTree','calculations'=>'Calculator',
           'site'=>'HardHat','documents'=>'FolderOpen','procurement'=>'Package','approvals'=>'BadgeCheck','portal'=>'UsersRound','reports'=>'ChartNoAxesCombined'
         ];
