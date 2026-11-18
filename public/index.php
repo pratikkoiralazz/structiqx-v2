@@ -82,8 +82,74 @@ function simple_pdf(string $title, array $headers, array $rows): string {
     return $pdf;
 }
 
-function render_public(string $title, string $content, string $activePage = ''): void {
+function render_public(string $title, string $content, string $activePage = '', string $metaDescription = ''): void {
     require dirname(__DIR__) . '/app/views/public_layout.php';
+}
+
+function cms_public_content(string $slug): ?array {
+    $stmt=db()->prepare("SELECT * FROM cms_pages WHERE slug=? AND status='published' AND is_visible=1");
+    $stmt->execute([$slug]);$page=$stmt->fetch();
+    if (!$page) return null;
+    $stmt=db()->prepare('SELECT * FROM cms_page_sections WHERE page_id=? AND is_visible=1 ORDER BY sort_order,id');
+    $stmt->execute([(int)$page['id']]);$sections=$stmt->fetchAll();
+    if (!$sections && $slug!=='pricing') return null;
+    $html='<main>';
+    foreach($sections as $index=>$section) {
+        $heading=trim((string)$section['heading']);
+        $description=trim((string)$section['description']);
+        $isHero=$section['section_key']==='hero' || $index===0;
+        $html.=$isHero?'<section class="sq-page-hero"><div class="sq-container">':'<section class="sq-section"><div class="sq-container">';
+        if($heading!=='') $html.='<h'.($isHero?'1':'2').'>'.e($heading).'</h'.($isHero?'1':'2').'>';
+        if($description!=='') $html.='<p>'.nl2br(e($description)).'</p>';
+        $image=trim((string)$section['image_path']);
+        if($image!=='' && preg_match('#^/?media/[a-zA-Z0-9._-]+$#',$image)) $html.='<img class="sq-cms-image" src="'.e(base_url(ltrim($image,'/'))).'" alt="">';
+        if(trim((string)$section['cta_text'])!=='') {
+            $url=trim((string)$section['cta_url']);
+            if(preg_match('#^https://#i',$url) && filter_var($url,FILTER_VALIDATE_URL)) $href=$url;
+            elseif(preg_match('#^/?[a-zA-Z0-9/_-]*$#',$url)) $href=base_url(ltrim($url,'/'));
+            else $href='';
+            if($href!=='') $html.='<p><a class="sq-btn sq-btn-accent" href="'.e($href).'">'.e($section['cta_text']).'</a></p>';
+        }
+        $items=json_decode((string)$section['content_json'],true);
+        if(is_array($items) && $items) {
+            $html.='<div class="sq-grid">';
+            foreach($items as $item) {
+                if(is_string($item)) $item=['heading'=>$item,'description'=>''];
+                if(!is_array($item)) continue;
+                $html.='<article class="sq-card">';
+                if(!empty($item['heading'])) $html.='<h3>'.e($item['heading']).'</h3>';
+                if(!empty($item['description'])) $html.='<p>'.nl2br(e($item['description'])).'</p>';
+                $html.='</article>';
+            }
+            $html.='</div>';
+        }
+        $html.='</div></section>';
+    }
+    if($slug==='pricing') {
+        $plans=db()->query('SELECT name,description,monthly_price,annual_price,currency,organization_limit,user_limit FROM subscription_plans WHERE is_enabled=1 ORDER BY monthly_price,id')->fetchAll();
+        $html.='<section class="sq-section"><div class="sq-container"><div class="sq-pricing">';
+        foreach($plans as $plan) $html.='<article class="sq-card sq-price"><h3>'.e($plan['name']).'</h3><div class="price">'.e($plan['currency']).' '.e(number_format((float)$plan['monthly_price'],2)).' / month</div><p>'.e($plan['description']).'</p><p>'.($plan['user_limit']===null?'Flexible users':(int)$plan['user_limit'].' users').' · '.($plan['organization_limit']===null?'Flexible organizations':(int)$plan['organization_limit'].' organization(s)').'</p><a class="sq-btn sq-btn-accent" href="'.e(base_url('contact')).'">Contact us</a></article>';
+        $html.='</div></div></section>';
+    }
+    if($slug==='contact') {
+        $html.='<section class="sq-section"><div class="sq-container" style="max-width:700px">';
+        foreach(consume_flash() as $notice) $html.='<div class="'.($notice['type']==='error'?'sq-error':'sq-success').'">'.e($notice['message']).'</div>';
+        $html.='<form class="sq-card" method="post">'.csrf_field().'<div class="sq-form-row"><div class="sq-field"><label>Name</label><input name="name" required></div><div class="sq-field"><label>Work email</label><input name="email" type="email" required></div></div><div class="sq-form-row"><div class="sq-field"><label>Phone</label><input name="phone"></div><div class="sq-field"><label>Organization</label><input name="organization"></div></div><div class="sq-field"><label>Subject</label><input name="subject" value="General enquiry"></div><div class="sq-field"><label>Message</label><textarea name="message" rows="6" required></textarea></div><button class="sq-btn sq-btn-accent" type="submit">Send message</button></form></div></section>';
+    }
+    $html.='</main>';
+    return ['title'=>$page['meta_title']?:$page['page_title'],'description'=>$page['meta_description']?:'STRUCTIQX civil engineering project management platform.','html'=>$html];
+}
+
+if (preg_match('#^media/([a-f0-9]{40}\.(?:jpg|png|webp))$#',$route,$mediaMatch)) {
+    $stmt=db()->prepare('SELECT stored_name,mime_type,file_size FROM cms_media WHERE stored_name=?');
+    $stmt->execute([$mediaMatch[1]]);$media=$stmt->fetch();
+    $file=dirname(__DIR__).'/storage/cms_media/'.($media['stored_name']??'');
+    if(!$media || !is_file($file)){http_response_code(404);exit('Media not found.');}
+    header('Content-Type: '.$media['mime_type']);
+    header('Content-Length: '.(int)$media['file_size']);
+    header('Cache-Control: public, max-age=86400');
+    header('X-Content-Type-Options: nosniff');
+    readfile($file);exit;
 }
 
 if (str_starts_with($route,'accept-invitation/')) {
@@ -119,7 +185,13 @@ if (str_starts_with($route,'verify-email/')) {
 }
 
 $publicPages = ['home','features','solutions','pricing','about','contact'];
-if (in_array($route,$publicPages,true)) {
+$customCmsRoute=false;
+$reservedRoutes=['admin','login','register','logout','forgot','forgot-password','reset','reset-password','install','dashboard','projects','project','tasks','schedule','budgets','expenses','boq','calculations','site','documents','procurement','approvals','portal','reports','settings','profile','clients','team','download','export','media','accept-invitation','verify-email'];
+if (!in_array($route,$publicPages,true) && !in_array($route,$reservedRoutes,true) && preg_match('/^[a-z0-9-]{1,80}$/',$route)) {
+    $stmt=db()->prepare("SELECT 1 FROM cms_pages WHERE slug=? AND status='published' AND is_visible=1");
+    $stmt->execute([$route]);$customCmsRoute=(bool)$stmt->fetchColumn();
+}
+if (in_array($route,$publicPages,true) || $customCmsRoute) {
     if (current_user() && $route === 'home') redirect(base_url('dashboard'));
     if ($route === 'contact' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         verify_csrf();
@@ -137,6 +209,12 @@ if (in_array($route,$publicPages,true)) {
         } catch (Throwable $e) { flash('error','The message could not be sent right now.'); }
         redirect(base_url('contact'));
     }
+    $cmsPage=cms_public_content($route);
+    if($cmsPage!==null) {
+        render_public($cmsPage['title'],$cmsPage['html'],$route,$cmsPage['description']);
+        exit;
+    }
+    if($customCmsRoute) {http_response_code(404);exit('This page has no published content yet.');}
     ob_start();
     if ($route === 'home') {
         ?>
@@ -174,10 +252,15 @@ if ($route === 'login') {
         verify_csrf();
         $email = strtolower(trim((string)($_POST['email'] ?? '')));
         $password = (string)($_POST['password'] ?? '');
-        $stmt = db()->prepare('SELECT u.*,om.organization_id,om.role,o.name organization_name FROM users u JOIN organization_members om ON om.user_id=u.id JOIN organizations o ON o.id=om.organization_id WHERE u.email=? AND u.is_active=1 LIMIT 1');
+        $stmt = db()->prepare("SELECT u.*,om.organization_id,om.role,o.name organization_name,o.approval_status FROM users u JOIN organization_members om ON om.user_id=u.id JOIN organizations o ON o.id=om.organization_id WHERE u.email=? AND u.is_active=1 AND om.status='active' ORDER BY (o.approval_status='approved') DESC LIMIT 1");
         $stmt->execute([$email]);
         $user = $stmt->fetch();
         if ($user && password_verify($password, $user['password_hash'])) {
+            if ($user['approval_status'] !== 'approved') {
+                $error = $user['approval_status'] === 'pending'
+                    ? 'Your organization is awaiting administrator approval.'
+                    : 'Workspace access is unavailable. Contact support for assistance.';
+            } else {
             session_regenerate_id(true);
             if (!empty($_POST['remember'])) {
                 setcookie(session_name(), session_id(), [
@@ -195,12 +278,13 @@ if ($route === 'login') {
             log_activity('login','session',null,'User signed in');
             if (!empty($_SESSION['intended_url'])) {$intended=$_SESSION['intended_url'];unset($_SESSION['intended_url']);redirect($intended);}
             redirect(base_url('dashboard'));
+            }
         }
-        $error = 'Invalid email or password.';
+        if (empty($error)) $error = 'Invalid email or password.';
     }
     ?>
     <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Sign in | structiQX</title><script src="https://cdn.tailwindcss.com"></script></head>
-    <body class="min-h-screen bg-slate-950 grid place-items-center p-5"><main class="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl"><a href="<?= e(base_url('')) ?>" class="mb-8 flex items-center gap-3 text-slate-900 no-underline"><div class="h-10 w-10 rounded-xl bg-orange-500 grid place-items-center font-bold text-white">SQ</div><div><p class="font-semibold">STRUCTIQX</p><p class="text-xs text-slate-500">Civil Engineering OS</p></div></a><h1 class="text-xl font-semibold">Welcome back</h1><p class="mt-1 text-sm text-slate-500">Sign in to your workspace.</p><?php if (!empty($error)): ?><p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><?= e($error) ?></p><?php endif; ?><form method="post" class="mt-6 space-y-4"><?= csrf_field() ?><label class="block text-sm font-medium">Email<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="email" name="email" required></label><label class="block text-sm font-medium">Password<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="password" name="password" required></label><div class="flex items-center justify-between text-sm"><label class="flex items-center gap-2"><input type="checkbox" name="remember" value="1"> Remember me</label><a class="text-slate-500" href="<?= e(base_url('forgot-password')) ?>">Forgot password?</a></div><button class="w-full rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">Sign in</button></form><p class="mt-5 text-center text-sm text-slate-500">New to STRUCTIQX? <a class="text-orange-600" href="<?= e(base_url('register')) ?>">Create organization</a></p><p class="mt-4 text-center text-xs text-slate-400">Demo: admin@structiqx.test / Password123!</p></main></body></html>
+    <body class="min-h-screen bg-slate-950 grid place-items-center p-5"><main class="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl"><a href="<?= e(base_url('')) ?>" class="mb-8 flex items-center gap-3 text-slate-900 no-underline"><div class="h-10 w-10 rounded-xl bg-orange-500 grid place-items-center font-bold text-white">SQ</div><div><p class="font-semibold">STRUCTIQX</p><p class="text-xs text-slate-500">Civil Engineering OS</p></div></a><h1 class="text-xl font-semibold">Welcome back</h1><p class="mt-1 text-sm text-slate-500">Sign in to your workspace.</p><?php foreach(consume_flash() as $notice): ?><p class="mt-4 rounded-lg <?= $notice['type']==='error'?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700' ?> px-3 py-2 text-sm"><?= e($notice['message']) ?></p><?php endforeach; ?><?php if (!empty($error)): ?><p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"><?= e($error) ?></p><?php endif; ?><form method="post" class="mt-6 space-y-4"><?= csrf_field() ?><label class="block text-sm font-medium">Email<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="email" name="email" required></label><label class="block text-sm font-medium">Password<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="password" name="password" required></label><div class="flex items-center justify-between text-sm"><label class="flex items-center gap-2"><input type="checkbox" name="remember" value="1"> Remember me</label><a class="text-slate-500" href="<?= e(base_url('forgot-password')) ?>">Forgot password?</a></div><button class="w-full rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white">Sign in</button></form><p class="mt-5 text-center text-sm text-slate-500">New to STRUCTIQX? <a class="text-orange-600" href="<?= e(base_url('register')) ?>">Create organization</a></p><p class="mt-4 text-center text-xs text-slate-400">Demo: admin@structiqx.test / Password123!</p></main></body></html>
     <?php exit;
 }
 
@@ -238,6 +322,12 @@ if (str_starts_with($route,'reset/')) {
 
 if ($route === 'register') {
     if (current_user()) redirect(base_url('dashboard'));
+    $registrationSetting=db()->prepare("SELECT setting_value FROM admin_settings WHERE setting_key='registration_enabled'");
+    $registrationSetting->execute();
+    if ($registrationSetting->fetchColumn()==='0') {
+        flash('error','New organization registration is currently unavailable.');
+        redirect(base_url('login'));
+    }
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         verify_csrf();
         $name=trim((string)$_POST['name']); $email=strtolower(trim((string)$_POST['email'])); $orgName=trim((string)$_POST['organization']); $phone=trim((string)($_POST['phone']??'')); $password=(string)$_POST['password']; $confirm=(string)$_POST['confirm_password'];
@@ -246,7 +336,7 @@ if ($route === 'register') {
         try {
             db()->beginTransaction();
             $slug=strtolower(preg_replace('/[^a-z0-9]+/i','-',$orgName)); $slug=trim($slug,'-').'-'.substr(bin2hex(random_bytes(3)),0,6);
-            $stmt=db()->prepare('INSERT INTO organizations (name,slug,phone) VALUES (?,?,?)'); $stmt->execute([$orgName,$slug,$phone]); $orgId=(int)db()->lastInsertId();
+            $stmt=db()->prepare("INSERT INTO organizations (name,slug,phone,approval_status,registration_source) VALUES (?,?,?,'pending','self_signup')"); $stmt->execute([$orgName,$slug,$phone]); $orgId=(int)db()->lastInsertId();
             $stmt=db()->prepare('INSERT INTO users (name,email,password_hash,phone) VALUES (?,?,?,?)'); $stmt->execute([$name,$email,password_hash($password,PASSWORD_DEFAULT),$phone]); $uid=(int)db()->lastInsertId();
             try {
                 $verification=bin2hex(random_bytes(32));
@@ -254,8 +344,8 @@ if ($route === 'register') {
             } catch (Throwable $e) {}
             db()->prepare("INSERT INTO organization_members (organization_id,user_id,role) VALUES (?,?,'organization_admin')")->execute([$orgId,$uid]);
             db()->commit();
-            $_SESSION['user']=['id'=>$uid,'name'=>$name,'email'=>$email]; $_SESSION['organization_id']=$orgId; $_SESSION['organization_name']=$orgName; $_SESSION['role']='organization_admin';
-            session_regenerate_id(true); redirect(base_url('dashboard'));
+            flash('success','Your account was created. Your organization is awaiting administrator approval before workspace access is enabled.');
+            redirect(base_url('login'));
         } catch (Throwable $e) { if (db()->inTransaction()) db()->rollBack(); flash('error','Could not create account. The email may already be registered.'); redirect(base_url('register')); }
     }
     ?><!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Create organization | STRUCTIQX</title><script src="https://cdn.tailwindcss.com"></script></head><body class="min-h-screen bg-slate-950 grid place-items-center p-5"><main class="w-full max-w-lg rounded-2xl bg-white p-8"><?php foreach(consume_flash() as $notice):?><p class="mb-4 rounded-lg <?= $notice['type']==='error'?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700' ?> px-3 py-2 text-sm"><?= e($notice['message']) ?></p><?php endforeach?><a href="<?= e(base_url('')) ?>" class="mb-6 flex items-center gap-3 text-slate-900 no-underline"><div class="h-10 w-10 rounded-xl bg-orange-500 grid place-items-center font-bold text-white">SQ</div><div><p class="font-semibold">STRUCTIQX</p><p class="text-xs text-slate-500">Civil Engineering OS</p></div></a><h1 class="text-xl font-semibold">Create your organization</h1><p class="mt-1 text-sm text-slate-500">You will become the Organization Admin.</p><form method="post" class="mt-6 grid gap-4 sm:grid-cols-2"><?= csrf_field() ?><div class="sm:col-span-2"><?= form_field('Organization name','organization') ?></div><?= form_field('Full name','name') ?><?= form_field('Phone number','phone','','tel',false) ?><?= form_field('Work email','email','','email') ?><span></span><?= form_field('Password','password','','password') ?><?= form_field('Confirm password','confirm_password','','password') ?><button class="sm:col-span-2 w-full rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white">Create organization workspace</button></form><p class="mt-5 text-center text-sm"><a class="text-slate-500" href="<?= e(base_url('login')) ?>">Already have an account? Sign in</a></p></main></body></html><?php exit;
@@ -266,6 +356,13 @@ auth_redirect();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') verify_csrf();
 $org = organization_id();
+$orgStatus = db()->prepare('SELECT approval_status FROM organizations WHERE id=?');
+$orgStatus->execute([$org]);
+if ($orgStatus->fetchColumn() !== 'approved') {
+    unset($_SESSION['user'],$_SESSION['organization_id'],$_SESSION['organization_name'],$_SESSION['role']);
+    session_regenerate_id(true);
+    redirect(base_url('login'));
+}
 
 if ($page === 'download') {
     $id=(int)(explode('/',$route)[1] ?? 0);

@@ -1,7 +1,12 @@
 <?php
 $title = $title ?? 'STRUCTIQX';
 $activePage = $activePage ?? '';
-$brand = '<span class="sq-mark">SQ</span><span>STRUCTIQX</span>';
+$metaDescription = $metaDescription ?? '';
+$settings = [];
+foreach (db()->query('SELECT setting_key,setting_value FROM admin_settings')->fetchAll() as $setting) $settings[$setting['setting_key']]=$setting['setting_value'];
+$brandName = $settings['brand_name'] ?? 'STRUCTIQX';
+$metaDescription = $metaDescription ?: 'StructiqX manages construction projects, engineering calculations, budgets, teams and site operations in one workspace.';
+$brand = '<span class="sq-mark">SQ</span><span>' . e($brandName) . '</span>';
 ?>
 <!doctype html>
 <html lang="en">
@@ -9,7 +14,7 @@ $brand = '<span class="sq-mark">SQ</span><span>STRUCTIQX</span>';
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= e($title) ?> | STRUCTIQX</title>
-  <meta name="description" content="StructiqX manages construction projects, engineering calculations, budgets, teams and site operations in one workspace.">
+  <meta name="description" content="<?= e($metaDescription) ?>">
   <link rel="stylesheet" href="<?= e(base_url('assets/marketing.css')) ?>">
 </head>
 <body class="marketing">
@@ -39,7 +44,7 @@ $brand = '<span class="sq-mark">SQ</span><span>STRUCTIQX</span>';
         <div><strong>Company</strong><a href="<?= e(base_url('about')) ?>">About Us</a><a href="<?= e(base_url('contact')) ?>">Contact</a></div>
         <div><strong>Access</strong><a href="<?= e(base_url('login')) ?>">Login</a><a href="<?= e(base_url('register')) ?>">Create workspace</a></div>
       </div>
-      <div class="sq-footer-bottom"><span>© <?= date('Y') ?> STRUCTIQX</span><span>Built for civil engineering teams</span></div>
+      <div class="sq-footer-bottom"><span>© <?= date('Y') ?> <?= e($brandName) ?></span><span>Built for civil engineering teams<?php if(!empty($settings['support_email'])): ?> · <a href="mailto:<?= e($settings['support_email']) ?>"><?= e($settings['support_email']) ?></a><?php endif; ?><?php if(!empty($settings['support_phone'])): ?> · <?= e($settings['support_phone']) ?><?php endif; ?></span></div>
     </div>
   </footer>
 </body>

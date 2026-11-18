@@ -17,7 +17,7 @@ foreach($checks as $name=>$check){
     if(!$check['pass'])$failed++;
 }
 $pdo=db();
-$required=['users','organizations','organization_members','password_reset_tokens','email_verification_tokens','contact_messages','projects','tasks','budgets','expenses','boq','boq_items','engineering_calculations','site_reports','documents','suppliers','purchase_requests','purchase_orders','approvals','activity_logs'];
+$required=['users','organizations','organization_members','password_reset_tokens','email_verification_tokens','contact_messages','projects','tasks','budgets','expenses','boq','boq_items','engineering_calculations','site_reports','documents','suppliers','purchase_requests','purchase_orders','approvals','activity_logs','admin_users','admin_role_permissions','organization_approval_logs','cms_pages','cms_page_sections','cms_media','contact_message_notes','subscription_plans','organization_subscriptions','admin_settings','admin_activity_logs'];
 foreach($required as $table){
     $exists=(bool)$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=".$pdo->quote($table))->fetchColumn();
     echo ($exists?'PASS':'FAIL').' - Database table '.$table."\n";
