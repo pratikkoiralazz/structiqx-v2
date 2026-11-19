@@ -86,6 +86,75 @@ function render_public(string $title, string $content, string $activePage = '', 
     require dirname(__DIR__) . '/app/views/public_layout.php';
 }
 
+function features_page_content(): string {
+    ob_start();
+    ?>
+    <main class="sq-features">
+      <section class="sq-page-hero">
+        <div class="sq-container">
+          <span class="sq-eyebrow">A guided tour of the workspace</span>
+          <h1>See your whole project operation in one place</h1>
+          <p>Explore the dashboard and the tools behind it: project delivery, schedules, costs, engineering review, site records, procurement and reporting.</p>
+          <nav class="sq-feature-nav" aria-label="Feature sections">
+            <a href="#overview">Dashboard</a><a href="#delivery">Projects &amp; schedule</a><a href="#commercial">Budgets &amp; BOQ</a><a href="#engineering">Engineering</a><a href="#site">Site &amp; documents</a><a href="#procurement">Procurement &amp; clients</a><a href="#reporting">Reports</a>
+          </nav>
+        </div>
+      </section>
+      <section class="sq-section sq-feature-section" id="overview">
+        <div class="sq-container">
+          <div class="sq-section-head"><span class="sq-eyebrow">The project command center</span><h2>Start with the signals that matter</h2><p>Portfolio metrics, active work, budget snapshots and approaching deadlines are brought together for a quick daily overview.</p></div>
+          <figure class="sq-product-preview"><img src="<?= e(base_url('assets/features/workspace-dashboard.svg')) ?>" alt="Illustrative STRUCTIQX dashboard showing project and task metrics, progress chart, financial snapshot, recent projects and upcoming deadlines"><figcaption>Illustrative product preview. Figures and project names are examples.</figcaption></figure>
+          <div class="sq-feature-points"><article><strong>Portfolio at a glance</strong><span>See total, active, completed and delayed projects alongside open tasks and clients.</span></article><article><strong>Track delivery and cost</strong><span>Compare project progress with budget and actual expenditure.</span></article><article><strong>Stay ahead of deadlines</strong><span>Review upcoming milestones and recent activity from the same workspace.</span></article></div>
+        </div>
+      </section>
+      <section class="sq-section sq-section-alt sq-feature-section" id="delivery">
+        <div class="sq-container">
+          <div class="sq-section-head"><span class="sq-eyebrow">01 · Plan and deliver</span><h2>Projects, people and schedules stay connected</h2><p>Set up client-linked projects, assign team members, break work into tasks and milestones, and follow dependencies on a visual schedule.</p></div>
+          <figure class="sq-product-preview"><img src="<?= e(base_url('assets/features/projects-schedule.svg')) ?>" alt="Illustrative project schedule with tasks, progress bars, milestones and a today marker"><figcaption>Illustrative product preview. Names, dates and progress are examples.</figcaption></figure>
+          <div class="sq-feature-points"><article><strong>Projects and clients</strong><span>Keep scope, location, budget, client and project ownership together.</span></article><article><strong>Tasks, milestones and Gantt</strong><span>Follow owners, due dates, dependencies, progress and schedule status.</span></article><article><strong>Team coordination</strong><span>Use organization and project roles to make responsibilities clear.</span></article></div>
+        </div>
+      </section>
+      <section class="sq-section sq-feature-section" id="commercial">
+        <div class="sq-container">
+          <div class="sq-section-head"><span class="sq-eyebrow">02 · Control the commercial work</span><h2>Understand estimate, commitment and actual cost</h2><p>Build quantity-based BOQs, track project budgets and revisions, record expenses and monitor procurement against the plan.</p></div>
+          <figure class="sq-product-preview"><img src="<?= e(base_url('assets/features/budgets-boq.svg')) ?>" alt="Illustrative commercial dashboard showing project budget, expenses, cost categories and a bill of quantities"><figcaption>Illustrative product preview. Rates and amounts are examples.</figcaption></figure>
+          <div class="sq-feature-points"><article><strong>Budget visibility</strong><span>Compare approved budget values with expenses recorded to date.</span></article><article><strong>BOQ and rate analysis</strong><span>Review item descriptions, units, quantities, rates and calculated amounts.</span></article><article><strong>Expenses and revisions</strong><span>Record expenses and keep budget changes visible to the project team.</span></article></div>
+        </div>
+      </section>
+      <section class="sq-section sq-section-alt sq-feature-section" id="engineering">
+        <div class="sq-container">
+          <div class="sq-section-head"><span class="sq-eyebrow">03 · Document engineering work</span><h2>Keep calculation inputs and review status together</h2><p>Save structured calculation drafts against projects, with inputs, formulas, steps, results and explicit review status.</p></div>
+          <figure class="sq-product-preview"><img src="<?= e(base_url('assets/features/engineering-studio.svg')) ?>" alt="Illustrative engineering calculation form with dimensional inputs, formula, result and a professional review workflow"><figcaption>Illustrative product preview. Calculation inputs and results are examples.</figcaption></figure>
+          <aside class="sq-safety-note"><strong>Professional review matters.</strong> Calculations are draft tools, not approved engineering designs. Qualified professional verification is required.</aside>
+        </div>
+      </section>
+      <section class="sq-section sq-feature-section" id="site">
+        <div class="sq-container">
+          <div class="sq-section-head"><span class="sq-eyebrow">04 · Record site activity</span><h2>Bring field updates and project files into view</h2><p>Capture daily work, weather, labour, issues and site photos alongside controlled project documents and approval status.</p></div>
+          <figure class="sq-product-preview"><img src="<?= e(base_url('assets/features/site-documents.svg')) ?>" alt="Illustrative daily site report and document register with review status"><figcaption>Illustrative product preview. Report details and file names are examples.</figcaption></figure>
+          <div class="sq-feature-points"><article><strong>Daily site reports</strong><span>Save work completed, labour, materials, equipment, safety observations and photos.</span></article><article><strong>Document register</strong><span>Organize project files by category, version, status and access level.</span></article><article><strong>Controlled sharing</strong><span>Separate private, team and client-access documents.</span></article></div>
+        </div>
+      </section>
+      <section class="sq-section sq-section-alt sq-feature-section" id="procurement">
+        <div class="sq-container">
+          <div class="sq-section-head"><span class="sq-eyebrow">05 · Coordinate decisions and supply</span><h2>Track requests, approvals and client updates</h2><p>Follow purchase requests through supplier orders and delivery records, while sharing selected project progress and approved documents with clients.</p></div>
+          <figure class="sq-product-preview"><img src="<?= e(base_url('assets/features/procurement-client.svg')) ?>" alt="Illustrative procurement screen showing purchase orders, approval history and a client project progress view"><figcaption>Illustrative product preview. Supplier, order and project details are examples.</figcaption></figure>
+          <div class="sq-feature-points"><article><strong>Procurement flow</strong><span>Manage suppliers, purchase requests, orders and recorded deliveries.</span></article><article><strong>Approval history</strong><span>Keep decision status and responsibility easy to follow.</span></article><article><strong>Client portal</strong><span>Present relevant progress and only the information shared for client access.</span></article></div>
+        </div>
+      </section>
+      <section class="sq-section sq-feature-section" id="reporting">
+        <div class="sq-container">
+          <div class="sq-section-head"><span class="sq-eyebrow">06 · Review and report</span><h2>Turn day-to-day project data into useful reports</h2><p>Get a clearer view of budgets, expenses, progress, open work and project health, then export information for further review.</p></div>
+          <figure class="sq-product-preview"><img src="<?= e(base_url('assets/features/analytics-reports.svg')) ?>" alt="Illustrative project analytics screen comparing planned and actual spending, project health, progress and reporting"><figcaption>Illustrative product preview. Portfolio figures and trends are examples.</figcaption></figure>
+          <div class="sq-feature-points"><article><strong>Project and cost summaries</strong><span>See portfolio budget, actual spend, task completion and delivery signals.</span></article><article><strong>Exportable reports</strong><span>Export available report data in CSV, Excel-compatible and PDF formats.</span></article><article><strong>One connected workspace</strong><span>Move from summary to project, schedule, cost or site records to follow up.</span></article></div>
+        </div>
+      </section>
+      <section class="sq-section"><div class="sq-container"><div class="sq-cta"><div><h2>Ready to see it with your own projects?</h2><p>Set up your organization and explore the STRUCTIQX workspace.</p></div><div class="sq-hero-actions"><a class="sq-btn sq-btn-accent" href="<?= e(base_url('register')) ?>">Get started</a><a class="sq-btn" href="<?= e(base_url('pricing')) ?>">View pricing</a></div></div></div></section>
+    </main>
+    <?php
+    return (string)ob_get_clean();
+}
+
 function cms_public_content(string $slug): ?array {
     $stmt=db()->prepare("SELECT * FROM cms_pages WHERE slug=? AND status='published' AND is_visible=1");
     $stmt->execute([$slug]);$page=$stmt->fetch();
@@ -215,6 +284,10 @@ if (in_array($route,$publicPages,true) || $customCmsRoute) {
         exit;
     }
     if($customCmsRoute) {http_response_code(404);exit('This page has no published content yet.');}
+    if ($route === 'features') {
+        render_public('Features',features_page_content(),'features','Explore the STRUCTIQX project dashboard, scheduling, budgets, BOQ, engineering, site reports, documents, procurement and analytics.');
+        exit;
+    }
     ob_start();
     if ($route === 'home') {
         ?>
@@ -227,8 +300,6 @@ if (in_array($route,$publicPages,true) || $customCmsRoute) {
           <section class="sq-section sq-section-alt"><div class="sq-container sq-faq"><div class="sq-section-head"><span class="sq-eyebrow">FAQ</span><h2>Frequently asked questions</h2></div><details><summary>Is STRUCTIQX only for large construction companies?</summary><p>No. It supports consultancies, contractors, project managers and growing engineering teams.</p></details><details><summary>Can one organization isolate its projects and users?</summary><p>Yes. Every project and application record is scoped to its organization.</p></details><details><summary>Can approved documents be shared with clients?</summary><p>Yes. Documents can be marked for client access and reviewed through the client portal.</p></details></div></section>
         </main>
         <?php
-    } elseif ($route === 'features') {
-        ?><main><section class="sq-page-hero"><div class="sq-container"><span class="sq-eyebrow">Platform capabilities</span><h1>Everything engineering teams need</h1><p>Plan, estimate, execute and report across one secure workspace.</p></div></section><section class="sq-section"><div class="sq-container sq-grid"><article class="sq-card"><div class="sq-card-icon">01</div><h3>Projects and tasks</h3><p>Create projects, assign responsibility, track dependencies and completion.</p></article><article class="sq-card"><div class="sq-card-icon">02</div><h3>Schedule and Gantt</h3><p>Visualize timelines, deadlines and task relationships.</p></article><article class="sq-card"><div class="sq-card-icon">03</div><h3>Budget and BOQ</h3><p>Manage cost estimates, revisions, expenses and procurement.</p></article><article class="sq-card"><div class="sq-card-icon">04</div><h3>Site operations</h3><p>Capture reports, attendance, materials, equipment and photographs.</p></article><article class="sq-card"><div class="sq-card-icon">05</div><h3>Calculation studio</h3><p>Document engineering inputs, formulas, steps and review status.</p></article><article class="sq-card"><div class="sq-card-icon">06</div><h3>Documents and approvals</h3><p>Control versions, access and multi-party approval workflows.</p></article></div></section></main><?php
     } elseif ($route === 'solutions') {
         ?><main><section class="sq-page-hero"><div class="sq-container"><span class="sq-eyebrow">Solutions</span><h1>Built for real engineering operations</h1><p>Whether you consult, manage or construct, STRUCTIQX keeps project information aligned.</p></div></section><section class="sq-section"><div class="sq-container sq-grid"><article class="sq-card"><h3>Engineering consultancies</h3><p>Organize calculations, drawing reviews, BOQs, project teams and client communication.</p></article><article class="sq-card"><h3>Construction companies</h3><p>Coordinate site work, costs, procurement, daily reports and project progress.</p></article><article class="sq-card"><h3>Project managers</h3><p>View schedules, risks, approvals and delivery status from one dashboard.</p></article></div></section></main><?php
     } elseif ($route === 'pricing') {
