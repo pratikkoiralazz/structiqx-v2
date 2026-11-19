@@ -15,7 +15,7 @@ $brand = '<span class="sq-mark">SQ</span><span>' . e($brandName) . '</span>';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= e($title) ?> | STRUCTIQX</title>
   <meta name="description" content="<?= e($metaDescription) ?>">
-  <link rel="stylesheet" href="<?= e(base_url('assets/marketing.css')) ?>">
+  <link rel="stylesheet" href="<?= e(base_url('assets/marketing.css?v=' . filemtime(dirname(__DIR__, 2) . '/public/assets/marketing.css'))) ?>">
 </head>
 <body class="marketing">
   <header class="sq-container">
